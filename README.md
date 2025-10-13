@@ -8,14 +8,14 @@ A PowerShell script that adds a convenient "Open Claude Code Here" context menu 
 - **Automatic Icon Detection**: Automatically finds and uses the Claude Code executable icon
 - **No Admin Rights Required**: Uses HKEY_CURRENT_USER registry keys
 - **Easy Installation/Uninstallation**: Simple command-line parameters to install or remove
-- **Windows Terminal Integration**: Opens Claude Code in Windows Terminal with PowerShell
+- **Universal Path Detection**: Automatically locates Claude Code and PowerShell without requiring PATH configuration
+- **Interactive or Silent Mode**: Choose to be prompted for Explorer restart or run silently
 
 ## Prerequisites
 
 - Windows 10 or later
-- [Windows Terminal](https://aka.ms/terminal) installed
-- [Claude Code](https://claude.ai/claude-code) installed and available in PATH
-- PowerShell 5.1 or later
+- [Claude Code](https://claude.ai/claude-code) installed via npm
+- PowerShell 5.1 or later (included with Windows)
 
 ## Installation
 
@@ -25,14 +25,14 @@ A PowerShell script that adds a convenient "Open Claude Code Here" context menu 
 4. Run the installation command:
 
 ```powershell
+# Interactive mode (prompts to restart Explorer)
 .\ClaudeCodeContextMenu-Installer.ps1 -Action Install
+
+# Silent mode (automatically restarts Explorer)
+.\ClaudeCodeContextMenu-Installer.ps1 -Action Install -Silent
 ```
 
-5. (Optional) Restart Windows Explorer to see changes immediately:
-
-```powershell
-Stop-Process -Name explorer -Force
-```
+The script will prompt you to restart Windows Explorer unless you use the `-Silent` flag.
 
 ## Usage
 
@@ -40,7 +40,7 @@ After installation, you can:
 
 1. **Right-click on any folder** in Windows Explorer
 2. Select **"Open Claude Code Here"** from the context menu
-3. Windows Terminal will open with PowerShell in that directory, and Claude Code will start automatically
+3. PowerShell will open in that directory, and Claude Code will start automatically
 
 You can also right-click on empty space inside a folder to open Claude Code in the current directory.
 
@@ -49,7 +49,11 @@ You can also right-click on empty space inside a folder to open Claude Code in t
 To remove the context menu item:
 
 ```powershell
+# Interactive mode (prompts to restart Explorer)
 .\ClaudeCodeContextMenu-Installer.ps1 -Action Uninstall
+
+# Silent mode (automatically restarts Explorer)
+.\ClaudeCodeContextMenu-Installer.ps1 -Action Uninstall -Silent
 ```
 
 ## How It Works
@@ -61,14 +65,15 @@ The script modifies Windows Registry to add context menu entries at:
 
 When clicked, it executes:
 ```
-wt.exe -p PowerShell -d "%V" claude
+"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" -NoExit -Command "Set-Location -LiteralPath '%V'; $claudePath = Join-Path $env:APPDATA 'npm\claude.cmd'; & $claudePath"
 ```
 
 Where:
-- `wt.exe` = Windows Terminal
-- `-p PowerShell` = Use PowerShell profile
-- `-d "%V"` = Set directory to the selected folder path
-- `claude` = Run Claude Code CLI
+- Full path to `powershell.exe` is used to avoid PATH issues
+- `-NoExit` keeps the window open after running
+- `Set-Location -LiteralPath '%V'` changes to the selected folder
+- `$env:APPDATA\npm\claude.cmd` automatically locates Claude Code for any user
+- `%V` is replaced by Windows with the selected folder path
 
 ## Customization
 
@@ -89,16 +94,19 @@ $IconPath = "C:\Path\To\Custom\Icon.ico"
 ## Troubleshooting
 
 ### Context menu item doesn't appear
-- Try restarting Windows Explorer: `Stop-Process -Name explorer -Force`
+- Restart Windows Explorer using the `-Silent` flag during installation
+- Or manually restart: `Stop-Process -Name explorer -Force`
 - Verify the registry keys were created using Registry Editor (regedit)
 
 ### Icon doesn't show
 - The script will try to auto-detect the Claude Code executable
-- If detection fails, you can manually set the `$IconPath` variable in the script
+- Place a `claude-code.ico` file in the same directory as the installer script
+- The script will use the bundled icon if found
 
-### "claude" command not found
-- Ensure Claude Code is installed and available in your PATH
-- Test by running `claude --version` in PowerShell
+### Error: "The system cannot find the file specified"
+- Ensure Claude Code is installed via npm: `npm install -g @anthropic-ai/claude-code`
+- The script automatically looks for claude.cmd in `%APPDATA%\npm\`
+- If installed elsewhere, the script may need customization
 
 ## License
 
