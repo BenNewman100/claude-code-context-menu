@@ -16,19 +16,29 @@ If a copy of the MPL was not distributed with this file, You can obtain one at h
     Specifies whether to Install or Uninstall the context menu item.
     Valid values: "Install", "Uninstall"
 
+.PARAMETER Silent
+    When specified, automatically restarts Windows Explorer without prompting.
+
 .EXAMPLE
     .\ClaudeCodeContextMenu-Installer.ps1 -Action Install
-    Installs the context menu item.
+    Installs the context menu item and prompts to restart Explorer.
+
+.EXAMPLE
+    .\ClaudeCodeContextMenu-Installer.ps1 -Action Install -Silent
+    Installs the context menu item and automatically restarts Explorer.
 
 .EXAMPLE
     .\ClaudeCodeContextMenu-Installer.ps1 -Action Uninstall
-    Removes the context menu item.
+    Removes the context menu item and prompts to restart Explorer.
 #>
 
 param(
     [Parameter(Mandatory=$false)]
     [ValidateSet("Install", "Uninstall")]
-    [string]$Action = "Install"
+    [string]$Action = "Install",
+
+    [Parameter(Mandatory=$false)]
+    [switch]$Silent
 )
 
 # ============================================
@@ -166,13 +176,15 @@ function Install-ClaudeCodeContextMenu {
 
         # Set the command that will be executed when the menu item is clicked
         # Breakdown of the command:
-        #   wt.exe              = Windows Terminal executable
-        #   -d "%V"             = Set the starting directory to %V (the selected folder path)
-        #   powershell          = Launch PowerShell
+        #   powershell          = Launch PowerShell directly (using full path since it may not be in PATH)
         #   -NoExit             = Keep the window open after running the command
-        #   -Command "claude"   = Run the 'claude' command
+        #   -Command "..."      = Set location to %V (works across drives) then run claude
         # Note: %V is a special variable that Windows Explorer replaces with the selected path
-        $command = 'wt.exe -d "%V" powershell -NoExit -Command "claude"'
+        # Using Set-Location to handle cross-drive navigation
+        # Using $env:APPDATA to find claude.cmd universally (works for any user)
+        # Assigning path to variable first to avoid nested quoting issues
+        # Removed wt.exe wrapper to avoid quote parsing issues
+        $command = '"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" -NoExit -Command "Set-Location -LiteralPath ''%V''; $claudePath = Join-Path $env:APPDATA ''npm\claude.cmd''; & $claudePath"'
         Set-ItemProperty -Path $DirectoryCommandPath -Name "(Default)" -Value $command
 
         # ============================================
@@ -293,9 +305,26 @@ switch ($Action) {
 }
 
 # ============================================
-# Post-installation notes
+# Post-installation: Restart Windows Explorer
 # ============================================
-# Inform the user that Windows Explorer may need to be restarted
-# This is necessary because Explorer caches context menu items
-Write-Host "`nNote: You may need to restart Windows Explorer for changes to take effect." -ForegroundColor Cyan
-Write-Host "You can do this by running: Stop-Process -Name explorer -Force`n" -ForegroundColor Cyan
+# Windows Explorer caches context menu items, so it needs to be restarted
+# for the changes to take effect immediately
+
+if ($Silent) {
+    # In silent mode, automatically restart Explorer without prompting
+    Write-Host "`nRestarting Windows Explorer..." -ForegroundColor Cyan
+    Stop-Process -Name explorer -Force
+    Write-Host "Windows Explorer has been restarted.`n" -ForegroundColor Green
+} else {
+    # Prompt the user if they want to restart Explorer
+    Write-Host "`nNote: Windows Explorer needs to be restarted for changes to take effect." -ForegroundColor Cyan
+    $response = Read-Host "Would you like to restart Windows Explorer now? (Y/N)"
+
+    if ($response -match '^[Yy]') {
+        Write-Host "Restarting Windows Explorer..." -ForegroundColor Cyan
+        Stop-Process -Name explorer -Force
+        Write-Host "Windows Explorer has been restarted.`n" -ForegroundColor Green
+    } else {
+        Write-Host "Skipped. You can restart Explorer later by running: Stop-Process -Name explorer -Force`n" -ForegroundColor Yellow
+    }
+}
