@@ -1,7 +1,0 @@
-{
-  "project": "claude-code-context-menu",
-  "description": "Windows Explorer context menu integration for Claude Code",
-  "version": "1.0.0",
-  "type": "powershell-script",
-  "tags": ["windows", "context-menu", "claude-code", "powershell", "windows-terminal"]
-}
